@@ -1,32 +1,38 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
     <meta charset="UTF-8">
-    <title>Placar — No Mercy Edition</title>
+    <title>Placar — UNO No Mercy</title>
 
-    <!-- Fonte em estilo UNO -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Science+Gothic:wght@100..900&display=swap" rel="stylesheet">
-
-
-
-    <!-- Arquivo CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Science+Gothic:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
 </head>
-
 <body>
-    <div class="logo-container">
-    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSLgUTummkvKBHuRjieF2omYk2oLG41WdNi5A&s" alt="UNO No Mercy Logo" class="uno-logo">
+
+<!-- TELA DE LOGIN -->
+<div id="loginScreen" class="login-container">
+    <h2>Acesso Restrito</h2>
+
+    <input id="loginUser" type="text" placeholder="Usuário">
+    <input id="loginPass" type="password" placeholder="Senha">
+
+    <button onclick="doLogin()">Entrar</button>
+
+    <p id="loginError" style="color: red; display:none;">Usuário ou senha incorretos.</p>
 </div>
 
+<!-- CONTEÚDO PROTEGIDO -->
+<div id="appContent" style="display:none;">
 
-    <h1>PLACAR — NO MERCY EDITION</h1>
+    <div class="logo-container">
+        <img src="./imgs/uno.jpg" alt="UNO No Mercy Logo" class="uno-logo">
+    </div>
+
+    <h1>PLACAR — UNO NO MERCY</h1>
 
     <div class="tables-container">
 
-        <div class="table-box" id="boxWin">
+        <div class="table-box">
             <h2>Ranking de Vitórias</h2>
             <table id="winTable">
                 <thead>
@@ -40,7 +46,7 @@
             </table>
         </div>
 
-        <div class="table-box" id="boxLoss">
+        <div class="table-box">
             <h2>Ranking de Derrotas</h2>
             <table id="lossTable">
                 <thead>
@@ -55,10 +61,8 @@
         </div>
 
     </div>
+</div>
 
-    <!-- Arquivo JS -->
-    <script src="index.js"></script>
-
+<script src="index.js"></script>
 </body>
-
 </html>

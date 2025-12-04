@@ -1,31 +1,85 @@
 /* FUNDO GERAL NO MERCY */
 body {
-    background: #7A1F1F; /* vermelho NO MERCY */
+    background: #7A1F1F;
     color: #ffffff; 
     font-family: "Science Gothic", sans-serif;
     margin: 0;
     padding: 20px;
 }
 
-/* TÍTULO PRINCIPAL */
+/* TELA DE LOGIN */
+.login-container {
+    width: 100%;
+    max-width: 350px;
+    margin: 80px auto;
+    padding: 25px;
+    background: #000;
+    border: 2px solid #FFD100;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 0 20px #000;
+}
+
+.login-container input {
+    width: 90%;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+}
+
+.login-container button {
+    margin-top: 15px;
+    width: 95%;
+    padding: 12px 0;
+    font-size: 18px;
+    border: none;
+    border-radius: 6px;
+    background: #FFD100;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.login-container button:hover {
+    background: #ffea4c;
+}
+
+/* LOGO */
+.logo-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.uno-logo {
+    width: 260px;
+    filter: drop-shadow(0 0 12px #000);
+    transition: 0.3s ease;
+}
+
+.uno-logo:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 20px #FFD100);
+}
+
+/* TÍTULOS */
 h1 {
-    color: #FFD100; /* amarelo UNO */
+    color: #FFD100;
     text-align: center;
     letter-spacing: 4px;
     text-shadow: 0 0 12px #B30000;
-    font-weight: 700;
-    margin-bottom: 20px;
+    font-size: 34px;
 }
 
-/* SUBTÍTULOS */
 h2 {
     color: #FFD100;
     text-align: center;
     text-shadow: 0 0 8px #820000;
-    margin-bottom: 10px;
 }
 
-/* LAYOUT DAS TABELAS */
+/* LAYOUT */
 .tables-container {
     display: flex;
     gap: 25px;
@@ -33,16 +87,13 @@ h2 {
     margin-top: 25px;
 }
 
-/* CAIXAS PRETAS ESTILO UNO NO MERCY */
 .table-box {
     width: 45%;
     padding: 20px;
     border-radius: 12px;
-
-    background: #000000; /* fundo preto */
-    border: 3px solid #FFD100; /* amarelo UNO */
+    background: #000000;
+    border: 3px solid #FFD100;
     box-shadow: 0 0 20px rgba(0,0,0,0.8);
-
     animation: floatCard 4s ease-in-out infinite;
     transition: 0.3s;
 }
@@ -52,7 +103,6 @@ h2 {
     box-shadow: 0 0 25px rgba(255, 209, 0, 0.5);
 }
 
-/* animação suave */
 @keyframes floatCard {
     0% { transform: translateY(0); }
     50% { transform: translateY(-6px); }
@@ -64,7 +114,6 @@ table {
     width: 100%;
     border-collapse: collapse;
     background: #111111;
-    color: #FFFFFF;
     border-radius: 5px;
     overflow: hidden;
 }
@@ -83,12 +132,11 @@ td {
     border-bottom: 1px solid #333;
 }
 
-/* HOVER NA LINHA */
 tr:hover td {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255,255,255,0.08);
 }
 
-/* BOTÕES QUADRADOS */
+/* BOTÕES */
 .actions button {
     padding: 14px 22px;
     margin: 4px;
@@ -97,77 +145,45 @@ tr:hover td {
     cursor: pointer;
     font-size: 22px;
     font-weight: bold;
-    transition: 0.15s ease;
+    transition: 0.15s;
 }
 
-/* + Vitória */
 .actions .add {
     background: #00cc00;
     box-shadow: 0 0 12px #00ff00;
 }
+
 .actions .add:hover {
     background: #00ff00;
 }
 
-/* - Derrota */
 .actions .remove {
     background: #cc0000;
     box-shadow: 0 0 12px #ff0000;
 }
+
 .actions .remove:hover {
     background: #ff0000;
 }
 
-/* AURA DOS MAIORES VENCEDORES */
+/* AURAS */
 .row-win {
-    animation: glowWin 1s infinite alternate;
+    animation: glowW 1s infinite alternate;
 }
-@keyframes glowWin {
+@keyframes glowW {
     from { box-shadow: 0 0 10px rgba(0,255,100,0.4); }
     to   { box-shadow: 0 0 25px rgba(0,255,100,1); }
 }
 
-/* AURA DOS MAIORES PERDEDORES */
 .row-loss {
-    animation: glowLoss 1s infinite alternate;
+    animation: glowL 1s infinite alternate;
 }
-@keyframes glowLoss {
+@keyframes glowL {
     from { box-shadow: 0 0 10px rgba(255,0,0,0.4); }
     to   { box-shadow: 0 0 25px rgba(255,0,0,1); }
 }
 
-/* CONTAINER CENTRALIZADO PARA A LOGO */
-.logo-container {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    margin-bottom: 10px;
-}
-
-/* ESTILO DA LOGO UNO NO MERCY */
-.uno-logo {
-    width: 260px;
-    filter: drop-shadow(0 0 12px #000);
-    transition: 0.3s ease;
-}
-
-.uno-logo:hover {
-    transform: scale(1.05);
-    filter: drop-shadow(0 0 20px #FFD100);
-}
-
-/* -------------------------- */
-/* RESPONSIVIDADE INICIANDO   */
-/* -------------------------- */
-
-/* Telas menores que 1100px */
-@media (max-width: 1100px) {
-    .table-box {
-        width: 48%;
-    }
-}
-
-/* Telas menores que 900px */
+/* RESPONSIVO */
 @media (max-width: 900px) {
     .tables-container {
         flex-direction: column;
@@ -177,61 +193,19 @@ tr:hover td {
     .table-box {
         width: 90%;
     }
-
-    h1 {
-        font-size: 28px;
-    }
-
-    h2 {
-        font-size: 22px;
-    }
 }
 
-/* Telas menores que 600px (celulares) */
 @media (max-width: 600px) {
     .uno-logo {
         width: 180px;
     }
 
-    .table-box {
-        width: 100%;
-        padding: 12px;
-    }
-
     th, td {
         font-size: 16px;
-        padding: 10px;
     }
 
     .actions button {
         padding: 10px 16px;
         font-size: 18px;
-        margin: 2px;
-    }
-
-    h1 {
-        font-size: 24px;
-        letter-spacing: 2px;
-    }
-
-    h2 {
-        font-size: 18px;
-    }
-}
-
-/* Telas muito pequenas (menos de 400px) */
-@media (max-width: 400px) {
-
-    .uno-logo {
-        width: 150px;
-    }
-
-    .actions button {
-        padding: 8px 12px;
-        font-size: 16px;
-    }
-
-    td, th {
-        font-size: 14px;
     }
 }

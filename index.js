@@ -3,26 +3,83 @@ const players = [
     "Jonathan", "Jose", "Willians", "Renata", "Gabi"
 ];
 
-// Carregar LocalStorage
-let scores = JSON.parse(localStorage.getItem("unoScores")) || {};
+let scores = {
+    wins: {},
+    losses: {}
+};
 
-if (Object.keys(scores).length === 0) {
-    players.forEach(p => scores[p] = { win: 0, loss: 0 });
-    saveData();
+/* ------------------------- */
+/* AUTENTICAÇÃO SIMPLES      */
+/* ------------------------- */
+
+function checkAuth() {
+    if (localStorage.getItem("auth") === "enaex_ok") {
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("appContent").style.display = "block";
+        loadScores();
+    }
 }
 
-function saveData() {
-    localStorage.setItem("unoScores", JSON.stringify(scores));
+function doLogin() {
+    const user = document.getElementById("loginUser").value;
+    const pass = document.getElementById("loginPass").value;
+
+    if (user === "enaex" && pass === "ti2025") {
+        localStorage.setItem("auth", "enaex_ok");
+        checkAuth();
+    } else {
+        document.getElementById("loginError").style.display = "block";
+    }
 }
+
+checkAuth();
+
+/* ------------------------- */
+/* API                       */
+/* ------------------------- */
+
+async function loadScores() {
+    try {
+        const res = await fetch("/api/placar", {
+            headers: { "Authorization": "enaex_ok" }
+        });
+
+        const data = await res.json();
+        scores.wins = data.wins || {};
+        scores.losses = data.losses || {};
+
+        players.forEach(p => {
+            scores.wins[p] ??= 0;
+            scores.losses[p] ??= 0;
+        });
+
+        updateTables();
+    } catch (error) {
+        console.error("Erro ao carregar:", error);
+    }
+}
+
+async function saveScores() {
+    await fetch("/api/placar", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "enaex_ok"
+        },
+        body: JSON.stringify(scores)
+    });
+}
+
+/* ------------------------- */
+/* TABELAS                   */
+/* ------------------------- */
 
 function updateTables() {
+    const winRank = [...players].sort((a, b) => scores.wins[b] - scores.wins[a]);
+    const lossRank = [...players].sort((a, b) => scores.losses[b] - scores.losses[a]);
 
-    let winRank = [...players].sort((a, b) => scores[b].win - scores[a].win);
-    let lossRank = [...players].sort((a, b) => scores[b].loss - scores[a].loss);
-
-    // valores máximos de vitórias e derrotas
-    const maxWins = scores[winRank[0]].win;
-    const maxLoss = scores[lossRank[0]].loss;
+    const maxWins = scores.wins[winRank[0]];
+    const maxLoss = scores.losses[lossRank[0]];
 
     const winBody = document.querySelector("#winTable tbody");
     const lossBody = document.querySelector("#lossTable tbody");
@@ -30,49 +87,46 @@ function updateTables() {
     winBody.innerHTML = "";
     lossBody.innerHTML = "";
 
-    // limpar auras antigas
     document.querySelectorAll("tr").forEach(tr => {
         tr.classList.remove("row-win", "row-loss");
     });
 
-    // ---- TABELA DE VITÓRIAS ----
+    // vitórias
     winRank.forEach(p => {
+        const crown = scores.wins[p] === maxWins && maxWins > 0 ? " 👑" : "";
 
-        let crown = scores[p].win === maxWins && maxWins > 0 ? " 👑" : "";
-
-        let tr = document.createElement("tr");
+        const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${p}${crown}</td>
-            <td>${scores[p].win}</td>
+            <td>${scores.wins[p]}</td>
             <td class="actions">
-                <button class="add" onclick="scores['${p}'].win++; saveData(); updateTables();">+</button>
-                <button class="remove" onclick="if(scores['${p}'].win > 0){scores['${p}'].win--; saveData(); updateTables();}">-</button>
+                <button class="add" onclick="addWin('${p}')">+</button>
+                <button class="remove" onclick="removeWin('${p}')">-</button>
             </td>
         `;
 
-        if (scores[p].win === maxWins && maxWins > 0) {
+        if (scores.wins[p] === maxWins && maxWins > 0) {
             tr.classList.add("row-win");
         }
 
         winBody.appendChild(tr);
     });
 
-    // ---- TABELA DE DERROTAS ----
+    // derrotas
     lossRank.forEach(p => {
+        const cry = scores.losses[p] === maxLoss && maxLoss > 0 ? " 😭" : "";
 
-        let cry = scores[p].loss === maxLoss && maxLoss > 0 ? " 😭" : "";
-
-        let tr = document.createElement("tr");
+        const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${p}${cry}</td>
-            <td>${scores[p].loss}</td>
+            <td>${scores.losses[p]}</td>
             <td class="actions">
-                <button class="add" onclick="scores['${p}'].loss++; saveData(); updateTables();">+</button>
-                <button class="remove" onclick="if(scores['${p}'].loss > 0){scores['${p}'].loss--; saveData(); updateTables();}">-</button>
+                <button class="add" onclick="addLoss('${p}')">+</button>
+                <button class="remove" onclick="removeLoss('${p}')">-</button>
             </td>
         `;
 
-        if (scores[p].loss === maxLoss && maxLoss > 0) {
+        if (scores.losses[p] === maxLoss && maxLoss > 0) {
             tr.classList.add("row-loss");
         }
 
@@ -80,4 +134,27 @@ function updateTables() {
     });
 }
 
-updateTables();
+/* AÇÕES */
+async function addWin(p) {
+    scores.wins[p]++;
+    await saveScores();
+    updateTables();
+}
+
+async function removeWin(p) {
+    if (scores.wins[p] > 0) scores.wins[p]--;
+    await saveScores();
+    updateTables();
+}
+
+async function addLoss(p) {
+    scores.losses[p]++;
+    await saveScores();
+    updateTables();
+}
+
+async function removeLoss(p) {
+    if (scores.losses[p] > 0) scores.losses[p]--;
+    await saveScores();
+    updateTables();
+}
