@@ -13,9 +13,34 @@ async function connectDB() {
     return db;
 }
 
+const defaultStructure = {
+    id: "uno_placar",
+    wins: {
+        Vinicius: 0,
+        Musumeci: 0,
+        Fernando: 0,
+        Cristyan: 0,
+        Jonathan: 0,
+        Jose: 0,
+        Willians: 0,
+        Renata: 0,
+        Gabi: 0
+    },
+    losses: {
+        Vinicius: 0,
+        Musumeci: 0,
+        Fernando: 0,
+        Cristyan: 0,
+        Jonathan: 0,
+        Jose: 0,
+        Willians: 0,
+        Renata: 0,
+        Gabi: 0
+    }
+};
+
 export default async function handler(req, res) {
 
-    // Autenticação simples
     if (req.headers.authorization !== "enaex_ok") {
         return res.status(401).json({ error: "Não autorizado" });
     }
@@ -24,25 +49,23 @@ export default async function handler(req, res) {
     const collection = db.collection("placar");
 
     if (req.method === "GET") {
-        const data = await collection.findOne({ id: "uno_placar" });
+        let data = await collection.findOne({ id: "uno_placar" });
 
         if (!data) {
-            // primeira execução → criar placar zerado
-            const empty = { id: "uno_placar", wins: {}, losses: {} };
-            await collection.insertOne(empty);
-            return res.status(200).json(empty);
+            await collection.insertOne(defaultStructure);
+            data = defaultStructure;
         }
 
-        delete data._id; // remover campo interno do Mongo
+        delete data._id;
         return res.status(200).json(data);
     }
 
     if (req.method === "POST") {
-        const placar = req.body;
+        const body = req.body;
 
         await collection.updateOne(
             { id: "uno_placar" },
-            { $set: placar },
+            { $set: body },
             { upsert: true }
         );
 

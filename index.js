@@ -24,7 +24,7 @@ function doLogin() {
     const user = document.getElementById("loginUser").value;
     const pass = document.getElementById("loginPass").value;
 
-    if (user === "enaex" && pass === "ti2025") {
+    if (user === "enaex" && pass === "enaex@ti2025") {
         localStorage.setItem("auth", "enaex_ok");
         checkAuth();
     } else {
@@ -35,7 +35,7 @@ function doLogin() {
 checkAuth();
 
 /* ------------------------- */
-/* API                       */
+/*   API Functions           */
 /* ------------------------- */
 
 async function loadScores() {
@@ -45,17 +45,20 @@ async function loadScores() {
         });
 
         const data = await res.json();
+
         scores.wins = data.wins || {};
         scores.losses = data.losses || {};
 
+        // GARANTE QUE TODOS OS JOGADORES EXISTAM
         players.forEach(p => {
-            scores.wins[p] ??= 0;
-            scores.losses[p] ??= 0;
+            if (scores.wins[p] === undefined) scores.wins[p] = 0;
+            if (scores.losses[p] === undefined) scores.losses[p] = 0;
         });
 
         updateTables();
+
     } catch (error) {
-        console.error("Erro ao carregar:", error);
+        console.error("Erro ao carregar placar:", error);
     }
 }
 
@@ -134,7 +137,10 @@ function updateTables() {
     });
 }
 
-/* AÇÕES */
+/* ------------------------- */
+/* AÇÕES                     */
+/* ------------------------- */
+
 async function addWin(p) {
     scores.wins[p]++;
     await saveScores();
