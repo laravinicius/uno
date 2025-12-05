@@ -1,75 +1,50 @@
-let placar = {
-    wins: {},
-    losses: {}
-};
+import { MongoClient } from "mongodb";
 
-// RESTORE AUTOMÁTICO DO GOOGLE SHEETS
-async function restoreFromBackup() {
-    try {
-        const res = await fetch(process.env.BACKUP_URL, {
-            method: "GET"
-        });
+const uri = process.env.MONGO_URI;
+let client;
+let db;
 
-        if (!res.ok) {
-            console.log("Não foi possível restaurar:", res.status);
-            return null;
-        }
-
-        const data = await res.json();
-        return data;
-    } catch (err) {
-        console.log("Erro no restore:", err);
-        return null;
+async function connectDB() {
+    if (!client) {
+        client = new MongoClient(uri);
+        await client.connect();
+        db = client.db("unoDatabase");
     }
-}
-
-// BACKUP AUTOMÁTICO
-async function backup(placarData) {
-    try {
-        await fetch(process.env.BACKUP_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(placarData)
-        });
-    } catch (e) {
-        console.log("Erro no backup:", e);
-    }
+    return db;
 }
 
 export default async function handler(req, res) {
-    // AUTENTICAÇÃO BÁSICA
+
+    // Autenticação simples
     if (req.headers.authorization !== "enaex_ok") {
         return res.status(401).json({ error: "Não autorizado" });
     }
 
-    // 🔥 RESTORE AUTOMÁTICO SE O PLACAR ESTIVER VAZIO
-    const isEmpty =
-        Object.keys(placar.wins).length === 0 &&
-        Object.keys(placar.losses).length === 0;
+    const db = await connectDB();
+    const collection = db.collection("placar");
 
-    if (isEmpty) {
-        console.log("Placar vazio — restaurando do backup…");
-        const restored = await restoreFromBackup();
-
-        if (restored) {
-            placar = restored;
-            console.log("Restore concluído.");
-        } else {
-            console.log("Nenhum backup encontrado.");
-        }
-    }
-
-    // → GET: retornar o placar (já restaurado, se necessário)
     if (req.method === "GET") {
-        return res.status(200).json(placar);
+        const data = await collection.findOne({ id: "uno_placar" });
+
+        if (!data) {
+            // primeira execução → criar placar zerado
+            const empty = { id: "uno_placar", wins: {}, losses: {} };
+            await collection.insertOne(empty);
+            return res.status(200).json(empty);
+        }
+
+        delete data._id; // remover campo interno do Mongo
+        return res.status(200).json(data);
     }
 
-    // → POST: atualizar placar + fazer backup
     if (req.method === "POST") {
-        placar = req.body;
+        const placar = req.body;
 
-        // BACKUP AUTOMÁTICO
-        await backup(placar);
+        await collection.updateOne(
+            { id: "uno_placar" },
+            { $set: placar },
+            { upsert: true }
+        );
 
         return res.status(200).json({ ok: true });
     }
