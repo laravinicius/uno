@@ -1,105 +1,64 @@
 import { MongoClient } from "mongodb";
 
-// Configuração da conexão
-const uri = process.env.MONGO_URI;
-const options = {};
+// URI Hardcoded para teste (Elimina erro de variável de ambiente)
+// Adicionei 'unoDatabase' na string para forçar o banco correto
+const uri = "mongodb+srv://viniciusfelipe501_db_user:uno123456uno@unocluster.hycem7y.mongodb.net/unoDatabase?retryWrites=true&w=majority&appName=unocluster";
+
+const options = {
+    serverSelectionTimeoutMS: 5000, // Timeout de 5s para não ficar carregando infinitamente
+    connectTimeoutMS: 10000,
+};
 
 let client;
 let clientPromise;
 
-if (!uri) {
-    throw new Error("ERRO CRÍTICO: A variável MONGO_URI não foi definida no Vercel.");
-}
-
-// Em desenvolvimento, usa variável global para não estourar conexões.
-// Em produção, usa promise normal.
-if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-        client = new MongoClient(uri, options);
-        global._mongoClientPromise = client.connect();
-    }
-    clientPromise = global._mongoClientPromise;
-} else {
+if (!global._mongoClientPromise) {
     client = new MongoClient(uri, options);
-    clientPromise = client.connect();
+    global._mongoClientPromise = client.connect();
 }
-
-const PLAYERS = [
-    "Vinicius", "Musumeci", "Fernando", "Cristyan",
-    "Jonathan", "Jose", "Willians", "Renata", "Gabi"
-];
-
-function generateStructure() {
-    const s = { id: "uno_placar", wins: {}, losses: {} };
-    PLAYERS.forEach(p => {
-        s.wins[p] = 0;
-        s.losses[p] = 0;
-    });
-    return s;
-}
+clientPromise = global._mongoClientPromise;
 
 export default async function handler(req, res) {
-    // 1. Segurança: Verifica se a senha do APP está certa
-    if (req.headers.authorization !== "enaex_ok") {
-        return res.status(401).json({ error: "Não autorizado" });
-    }
-
+    // ---------------------------------------------------------
+    // MODO DIAGNÓSTICO (SEM AUTH)
+    // ---------------------------------------------------------
+    
     try {
-        // 2. Tenta conectar ao banco
+        console.log("1. Iniciando conexão...");
         const client = await clientPromise;
+        console.log("2. Conectado ao Cluster!");
+        
         const db = client.db("unoDatabase");
-        const collection = db.collection("placar");
+        
+        // Teste de Ping (Verifica se o banco responde)
+        await db.command({ ping: 1 });
+        console.log("3. Ping bem sucedido!");
 
-        // 3. Lógica do GET (Ler dados)
-        if (req.method === "GET") {
-            let data = await collection.findOne({ id: "uno_placar" });
+        // Teste de Leitura/Escrita
+        const collection = db.collection("placar_teste");
+        await collection.insertOne({ teste: "ok", data: new Date() });
+        console.log("4. Escrita bem sucedida!");
 
-            // Se não existir dados, cria o inicial
-            if (!data) {
-                data = generateStructure();
-                await collection.insertOne(data);
-            }
+        const count = await collection.countDocuments();
 
-            // Garante que todos jogadores existam no retorno
-            let updated = false;
-            PLAYERS.forEach(p => {
-                if (data.wins[p] === undefined) { data.wins[p] = 0; updated = true; }
-                if (data.losses[p] === undefined) { data.losses[p] = 0; updated = true; }
-            });
-
-            if (updated) {
-                await collection.updateOne(
-                    { id: "uno_placar" },
-                    { $set: data }
-                );
-            }
-
-            // Remove o ID interno do Mongo antes de enviar
-            const { _id, ...cleanData } = data;
-            return res.status(200).json(cleanData);
-        }
-
-        // 4. Lógica do POST (Salvar dados)
-        if (req.method === "POST") {
-            // Remove _id se vier no body para evitar erro
-            const { _id, ...bodyData } = req.body;
-
-            await collection.updateOne(
-                { id: "uno_placar" },
-                { $set: bodyData },
-                { upsert: true }
-            );
-            return res.status(200).json({ ok: true });
-        }
-
-        return res.status(405).json({ error: "Método não permitido" });
+        // SE CHEGAR AQUI, ESTÁ TUDO FUNCIONANDO
+        return res.status(200).json({
+            status: "SUCESSO TOTAL",
+            mensagem: "Conexão com Banco de Dados funcionando perfeitamente.",
+            documentos_teste: count,
+            database: db.databaseName
+        });
 
     } catch (error) {
-        console.error("ERRO NO MONGODB:", error);
-        // Agora o navegador vai te mostrar qual foi o erro exato!
-        return res.status(500).json({ 
-            error: "Erro no Banco de Dados", 
-            details: error.message 
+        console.error("ERRO GRAVE:", error);
+        
+        // RETORNA O ERRO EXATO NA TELA
+        return res.status(500).json({
+            status: "FALHA NA CONEXÃO",
+            erro_nome: error.name,
+            erro_mensagem: error.message,
+            erro_codigo: error.code,
+            dica: "Leia a mensagem acima para saber se é Senha (Auth) ou Rede (Timeout)"
         });
     }
 }
