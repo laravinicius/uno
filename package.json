@@ -4,5 +4,22 @@
   "type": "module",
   "dependencies": {
     "mongodb": "^6.21.0"
-  }
+  },
+  "description": "",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/laravinicius/uno.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/laravinicius/uno/issues"
+  },
+  "homepage": "https://github.com/laravinicius/uno#readme"
 }
