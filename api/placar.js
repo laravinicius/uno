@@ -19,18 +19,17 @@ const PLAYERS = [
 ];
 
 function generateStructure() {
-    const structure = { id: "uno_placar", wins: {}, losses: {} };
-
+    const s = { id: "uno_placar", wins: {}, losses: {} };
     PLAYERS.forEach(p => {
-        structure.wins[p] = 0;
-        structure.losses[p] = 0;
+        s.wins[p] = 0;
+        s.losses[p] = 0;
     });
-
-    return structure;
+    return s;
 }
 
 export default async function handler(req, res) {
 
+    // Autenticação
     if (req.headers.authorization !== "enaex_ok") {
         return res.status(401).json({ error: "Não autorizado" });
     }
@@ -38,18 +37,23 @@ export default async function handler(req, res) {
     const db = await connectDB();
     const collection = db.collection("placar");
 
+    // ===================
+    // GET — LER PLACAR
+    // ===================
     if (req.method === "GET") {
         let data = await collection.findOne({ id: "uno_placar" });
 
+        // Se não existir, cria
         if (!data) {
             data = generateStructure();
             await collection.insertOne(data);
         }
 
+        // Corrigir se faltar algum jogador
         let updated = false;
         PLAYERS.forEach(p => {
-            if (!(p in data.wins)) { data.wins[p] = 0; updated = true; }
-            if (!(p in data.losses)) { data.losses[p] = 0; updated = true; }
+            if (data.wins[p] == null) { data.wins[p] = 0; updated = true; }
+            if (data.losses[p] == null) { data.losses[p] = 0; updated = true; }
         });
 
         if (updated) {
@@ -63,13 +67,15 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
     }
 
+    // ===================
+    // POST — SALVAR PLACAR
+    // ===================
     if (req.method === "POST") {
         await collection.updateOne(
             { id: "uno_placar" },
             { $set: req.body },
             { upsert: true }
         );
-
         return res.status(200).json({ ok: true });
     }
 
