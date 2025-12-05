@@ -109,6 +109,12 @@ async function saveScores() {
 function updateTables() {
     const isAdmin = localStorage.getItem("auth") === "enaex_ok";
 
+    // 1. Controla a visibilidade dos Cabeçalhos (Ações)
+    const headers = document.querySelectorAll(".col-actions");
+    headers.forEach(th => {
+        th.style.display = isAdmin ? "" : "none";
+    });
+
     const winRank = [...players].sort((a, b) => scores.wins[b] - scores.wins[a]);
     const lossRank = [...players].sort((a, b) => scores.losses[b] - scores.losses[a]);
 
@@ -125,16 +131,19 @@ function updateTables() {
     winRank.forEach(p => {
         const crown = scores.wins[p] === maxWins && maxWins > 0 ? " 👑" : "";
         
-        // Define se mostra botões ou traço
-        const actions = isAdmin 
-            ? `<button class="add" onclick="addWin('${p}')">+</button>
-               <button class="remove" onclick="removeWin('${p}')">-</button>`
-            : `<span style="opacity:0.3">—</span>`;
+        // Se for admin, cria a célula com botões. Se não, string vazia.
+        const actionCell = isAdmin 
+            ? `<td class="actions">
+                   <button class="add" onclick="addWin('${p}')">+</button>
+                   <button class="remove" onclick="removeWin('${p}')">-</button>
+               </td>` 
+            : "";
 
         const tr = document.createElement("tr");
         if (scores.wins[p] === maxWins && maxWins > 0) tr.classList.add("row-win");
         
-        tr.innerHTML = `<td>${p}${crown}</td><td>${scores.wins[p]}</td><td class="actions">${actions}</td>`;
+        // Note que actionCell só entra no HTML se for admin
+        tr.innerHTML = `<td>${p}${crown}</td><td>${scores.wins[p]}</td>${actionCell}`;
         winBody.appendChild(tr);
     });
 
@@ -142,15 +151,17 @@ function updateTables() {
     lossRank.forEach(p => {
         const cry = scores.losses[p] === maxLoss && maxLoss > 0 ? " 😭" : "";
 
-        const actions = isAdmin 
-            ? `<button class="add" onclick="addLoss('${p}')">+</button>
-               <button class="remove" onclick="removeLoss('${p}')">-</button>`
-            : `<span style="opacity:0.3">—</span>`;
+        const actionCell = isAdmin 
+            ? `<td class="actions">
+                   <button class="add" onclick="addLoss('${p}')">+</button>
+                   <button class="remove" onclick="removeLoss('${p}')">-</button>
+               </td>` 
+            : "";
 
         const tr = document.createElement("tr");
         if (scores.losses[p] === maxLoss && maxLoss > 0) tr.classList.add("row-loss");
 
-        tr.innerHTML = `<td>${p}${cry}</td><td>${scores.losses[p]}</td><td class="actions">${actions}</td>`;
+        tr.innerHTML = `<td>${p}${cry}</td><td>${scores.losses[p]}</td>${actionCell}`;
         lossBody.appendChild(tr);
     });
 }
