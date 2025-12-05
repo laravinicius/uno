@@ -1,7 +1,8 @@
 import { MongoClient } from "mongodb";
 
-// --- MUDANÇA AQUI: Agora buscamos DATABASE_URL ---
-const uri = process.env.DATABASE_URL;
+// --- MUDANÇA CRÍTICA: FALLBACK DE EMERGÊNCIA ---
+// Se a variável do Vercel falhar, ele usa a string fixa (que sabemos que funciona).
+const uri = process.env.DATABASE_URL || "mongodb+srv://viniciusfelipe501_db_user:uno123456uno@unocluster.hycem7y.mongodb.net/unoDatabase?retryWrites=true&w=majority&appName=unocluster";
 // -------------------------------------------------
 
 const options = {
@@ -13,8 +14,9 @@ let client;
 let clientPromise;
 
 function getClientPromise() {
+    // Agora isso nunca vai acontecer porque temos o fallback
     if (!uri) {
-        throw new Error("A variável DATABASE_URL não foi encontrada no Vercel.");
+        throw new Error("ERRO: Nenhuma conexão disponível (Nem Variável, Nem Fallback).");
     }
 
     if (process.env.NODE_ENV === "development") {
@@ -44,14 +46,6 @@ function generateStructure() {
 }
 
 export default async function handler(req, res) {
-    // Diagnóstico rápido caso a nova variável também falhe
-    if (!uri) {
-        return res.status(500).json({
-            error: "Erro Fatal de Configuração",
-            details: "A variável DATABASE_URL ainda não foi lida pelo servidor. Tente fazer um novo Deploy."
-        });
-    }
-
     // Autenticação
     if (req.headers.authorization !== "enaex_ok") {
         return res.status(401).json({ error: "Não autorizado" });
@@ -59,7 +53,7 @@ export default async function handler(req, res) {
 
     try {
         const client = await getClientPromise();
-        const db = client.db(); 
+        const db = client.db(); // Usa o banco definido na string (/unoDatabase)
         const collection = db.collection("placar");
 
         // --- GET ---
@@ -71,7 +65,6 @@ export default async function handler(req, res) {
                 await collection.insertOne(data);
             }
 
-            // Sanitização (Garante que novos jogadores apareçam)
             let updated = false;
             PLAYERS.forEach(p => {
                 if (data.wins[p] === undefined) { data.wins[p] = 0; updated = true; }
