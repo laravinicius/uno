@@ -44,21 +44,24 @@ async function loadScores() {
             headers: { "Authorization": "enaex_ok" }
         });
 
+        if (!res.ok) throw new Error(`Erro API: ${res.status}`);
+
         const data = await res.json();
 
         scores.wins = data.wins || {};
         scores.losses = data.losses || {};
 
-        // GARANTE QUE TODOS OS JOGADORES EXISTAM
+    } catch (error) {
+        console.error("Erro ao carregar placar, exibindo zerado:", error);
+        // Opcional: Mostrar um alerta visual para o usuário
+    } finally {
+        // Garante que a tabela seja desenhada mesmo se a API falhar ou estiver vazia
         players.forEach(p => {
             if (scores.wins[p] === undefined) scores.wins[p] = 0;
             if (scores.losses[p] === undefined) scores.losses[p] = 0;
         });
-
+        
         updateTables();
-
-    } catch (error) {
-        console.error("Erro ao carregar placar:", error);
     }
 }
 
