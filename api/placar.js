@@ -13,31 +13,21 @@ async function connectDB() {
     return db;
 }
 
-const defaultStructure = {
-    id: "uno_placar",
-    wins: {
-        Vinicius: 0,
-        Musumeci: 0,
-        Fernando: 0,
-        Cristyan: 0,
-        Jonathan: 0,
-        Jose: 0,
-        Willians: 0,
-        Renata: 0,
-        Gabi: 0
-    },
-    losses: {
-        Vinicius: 0,
-        Musumeci: 0,
-        Fernando: 0,
-        Cristyan: 0,
-        Jonathan: 0,
-        Jose: 0,
-        Willians: 0,
-        Renata: 0,
-        Gabi: 0
-    }
-};
+const PLAYERS = [
+    "Vinicius", "Musumeci", "Fernando", "Cristyan",
+    "Jonathan", "Jose", "Willians", "Renata", "Gabi"
+];
+
+function generateStructure() {
+    const structure = { id: "uno_placar", wins: {}, losses: {} };
+
+    PLAYERS.forEach(p => {
+        structure.wins[p] = 0;
+        structure.losses[p] = 0;
+    });
+
+    return structure;
+}
 
 export default async function handler(req, res) {
 
@@ -52,8 +42,21 @@ export default async function handler(req, res) {
         let data = await collection.findOne({ id: "uno_placar" });
 
         if (!data) {
-            await collection.insertOne(defaultStructure);
-            data = defaultStructure;
+            data = generateStructure();
+            await collection.insertOne(data);
+        }
+
+        let updated = false;
+        PLAYERS.forEach(p => {
+            if (!(p in data.wins)) { data.wins[p] = 0; updated = true; }
+            if (!(p in data.losses)) { data.losses[p] = 0; updated = true; }
+        });
+
+        if (updated) {
+            await collection.updateOne(
+                { id: "uno_placar" },
+                { $set: data }
+            );
         }
 
         delete data._id;
@@ -61,11 +64,9 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-        const body = req.body;
-
         await collection.updateOne(
             { id: "uno_placar" },
-            { $set: body },
+            { $set: req.body },
             { upsert: true }
         );
 
