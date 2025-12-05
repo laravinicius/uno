@@ -3,26 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <title>Placar — UNO No Mercy</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Science+Gothic:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
+    
+    <style>
+        .auth-bar {
+            text-align: right;
+            padding: 10px;
+        }
+        .btn-login {
+            background: #333; color: #fff; border: 1px solid #555;
+            padding: 5px 15px; cursor: pointer; border-radius: 4px;
+        }
+        /* Modal de Login (Fundo Escuro) */
+        #loginModal {
+            display: none; /* Escondido por padrão */
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center; align-items: center;
+            z-index: 999;
+        }
+        /* Caixa de Login */
+        .login-box {
+            background: #1e1e1e; padding: 20px; border-radius: 8px;
+            border: 2px solid #ff0000; text-align: center;
+            width: 300px;
+        }
+        .login-box input {
+            display: block; width: 90%; margin: 10px auto; padding: 8px;
+        }
+        .login-box button {
+            width: 95%; padding: 10px; margin-top: 10px;
+            background: #c20000; color: white; border: none; cursor: pointer;
+        }
+        .close-btn {
+            background: transparent; border: none; color: #aaa; float: right; cursor: pointer; font-size: 20px;
+        }
+    </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="loginScreen" class="login-container">
-    <h2>Acesso Restrito</h2>
-
-    <input id="loginUser" type="text" placeholder="Usuário">
-    <input id="loginPass" type="password" placeholder="Senha">
-
-    <button onclick="doLogin()">Entrar</button>
-
-    <p id="loginError" style="color: red; display:none;">Usuário ou senha incorretos.</p>
+<div class="auth-bar">
+    <button id="btnLogin" class="btn-login" onclick="openLogin()">🔐 Login Admin</button>
+    <button id="btnLogout" class="btn-login" onclick="doLogout()" style="display:none;">🚪 Sair</button>
 </div>
 
-<!-- APP -->
-<div id="appContent" style="display:none;">
+<div id="loginModal">
+    <div class="login-box">
+        <button class="close-btn" onclick="closeLogin()">×</button>
+        <h2>Acesso Restrito</h2>
+        <input id="loginUser" type="text" placeholder="Usuário">
+        <input id="loginPass" type="password" placeholder="Senha">
+        <button onclick="doLogin()">Entrar</button>
+        <p id="loginError" style="color: red; display:none; margin-top:10px;">Credenciais inválidas.</p>
+    </div>
+</div>
+
+<div id="appContent">
 
     <div class="logo-container">
         <img src="./imgs/uno.jpg" alt="UNO No Mercy Logo" class="uno-logo">
@@ -31,8 +69,6 @@
     <h1>PLACAR — UNO NO MERCY</h1>
 
     <div class="tables-container">
-
-        <!-- VITÓRIAS -->
         <div class="table-box">
             <h2>Ranking de Vitórias</h2>
             <table id="winTable">
@@ -47,7 +83,6 @@
             </table>
         </div>
 
-        <!-- DERROTAS -->
         <div class="table-box">
             <h2>Ranking de Derrotas</h2>
             <table id="lossTable">
@@ -61,7 +96,6 @@
                 <tbody></tbody>
             </table>
         </div>
-
     </div>
 </div>
 

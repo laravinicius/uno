@@ -3,21 +3,24 @@ const players = [
     "Jonathan", "Jose", "Willians", "Renata", "Gabi"
 ];
 
-let scores = {
-    wins: {},
-    losses: {}
-};
+let scores = { wins: {}, losses: {} };
+
+// Carrega o placar assim que abre a página
+loadScores();
+checkUiState(); // Verifica se mostra botão Login ou Sair
 
 /* ------------------------- */
-/* AUTENTICAÇÃO SIMPLES      */
+/* SISTEMA DE LOGIN        */
 /* ------------------------- */
 
-function checkAuth() {
-    if (localStorage.getItem("auth") === "enaex_ok") {
-        document.getElementById("loginScreen").style.display = "none";
-        document.getElementById("appContent").style.display = "block";
-        loadScores();
-    }
+function openLogin() {
+    document.getElementById("loginModal").style.display = "flex";
+    document.getElementById("loginUser").focus();
+}
+
+function closeLogin() {
+    document.getElementById("loginModal").style.display = "none";
+    document.getElementById("loginError").style.display = "none";
 }
 
 function doLogin() {
@@ -26,61 +29,86 @@ function doLogin() {
 
     if (user === "enaex" && pass === "enaex@ti2025") {
         localStorage.setItem("auth", "enaex_ok");
-        checkAuth();
+        closeLogin();
+        checkUiState();
+        updateTables(); // Redesenha a tabela para aparecer os botões
     } else {
         document.getElementById("loginError").style.display = "block";
     }
 }
 
-checkAuth();
+function doLogout() {
+    if(confirm("Deseja sair do modo admin?")) {
+        localStorage.removeItem("auth");
+        checkUiState();
+        updateTables(); // Redesenha a tabela para sumir os botões
+    }
+}
+
+function checkUiState() {
+    const isLogged = localStorage.getItem("auth") === "enaex_ok";
+    document.getElementById("btnLogin").style.display = isLogged ? "none" : "inline-block";
+    document.getElementById("btnLogout").style.display = isLogged ? "inline-block" : "none";
+}
 
 /* ------------------------- */
-/*   API Functions           */
+/* API & DADOS             */
 /* ------------------------- */
 
 async function loadScores() {
     try {
-        const res = await fetch("/api/placar", {
-            headers: { "Authorization": "enaex_ok" }
-        });
-
-        if (!res.ok) throw new Error(`Erro API: ${res.status}`);
-
+        // GET agora é público, não enviamos header
+        const res = await fetch("/api/placar");
+        if (!res.ok) throw new Error("Erro API GET");
+        
         const data = await res.json();
-
         scores.wins = data.wins || {};
         scores.losses = data.losses || {};
 
-    } catch (error) {
-        console.error("Erro ao carregar placar, exibindo zerado:", error);
-        // Opcional: Mostrar um alerta visual para o usuário
-    } finally {
-        // Garante que a tabela seja desenhada mesmo se a API falhar ou estiver vazia
         players.forEach(p => {
             if (scores.wins[p] === undefined) scores.wins[p] = 0;
             if (scores.losses[p] === undefined) scores.losses[p] = 0;
         });
-        
+
         updateTables();
+
+    } catch (error) {
+        console.error("Erro ao carregar:", error);
     }
 }
 
 async function saveScores() {
-    await fetch("/api/placar", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "enaex_ok"
-        },
-        body: JSON.stringify(scores)
-    });
+    try {
+        const res = await fetch("/api/placar", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                // Enviamos a senha para poder salvar
+                "Authorization": "enaex_ok" 
+            },
+            body: JSON.stringify(scores)
+        });
+
+        if (!res.ok) {
+            if (res.status === 401) {
+                alert("Sessão expirada ou sem permissão. Faça login novamente.");
+                doLogout();
+            } else {
+                alert("Erro ao salvar!");
+            }
+        }
+    } catch (e) {
+        console.error("Erro save:", e);
+    }
 }
 
 /* ------------------------- */
-/* TABELAS                   */
+/* TABELAS (RENDERIZAÇÃO)    */
 /* ------------------------- */
 
 function updateTables() {
+    const isAdmin = localStorage.getItem("auth") === "enaex_ok";
+
     const winRank = [...players].sort((a, b) => scores.wins[b] - scores.wins[a]);
     const lossRank = [...players].sort((a, b) => scores.losses[b] - scores.losses[a]);
 
@@ -93,49 +121,36 @@ function updateTables() {
     winBody.innerHTML = "";
     lossBody.innerHTML = "";
 
-    document.querySelectorAll("tr").forEach(tr => {
-        tr.classList.remove("row-win", "row-loss");
-    });
-
-    // vitórias
+    // --- Renderiza Vitórias ---
     winRank.forEach(p => {
         const crown = scores.wins[p] === maxWins && maxWins > 0 ? " 👑" : "";
+        
+        // Define se mostra botões ou traço
+        const actions = isAdmin 
+            ? `<button class="add" onclick="addWin('${p}')">+</button>
+               <button class="remove" onclick="removeWin('${p}')">-</button>`
+            : `<span style="opacity:0.3">—</span>`;
 
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${p}${crown}</td>
-            <td>${scores.wins[p]}</td>
-            <td class="actions">
-                <button class="add" onclick="addWin('${p}')">+</button>
-                <button class="remove" onclick="removeWin('${p}')">-</button>
-            </td>
-        `;
-
-        if (scores.wins[p] === maxWins && maxWins > 0) {
-            tr.classList.add("row-win");
-        }
-
+        if (scores.wins[p] === maxWins && maxWins > 0) tr.classList.add("row-win");
+        
+        tr.innerHTML = `<td>${p}${crown}</td><td>${scores.wins[p]}</td><td class="actions">${actions}</td>`;
         winBody.appendChild(tr);
     });
 
-    // derrotas
+    // --- Renderiza Derrotas ---
     lossRank.forEach(p => {
         const cry = scores.losses[p] === maxLoss && maxLoss > 0 ? " 😭" : "";
 
+        const actions = isAdmin 
+            ? `<button class="add" onclick="addLoss('${p}')">+</button>
+               <button class="remove" onclick="removeLoss('${p}')">-</button>`
+            : `<span style="opacity:0.3">—</span>`;
+
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${p}${cry}</td>
-            <td>${scores.losses[p]}</td>
-            <td class="actions">
-                <button class="add" onclick="addLoss('${p}')">+</button>
-                <button class="remove" onclick="removeLoss('${p}')">-</button>
-            </td>
-        `;
+        if (scores.losses[p] === maxLoss && maxLoss > 0) tr.classList.add("row-loss");
 
-        if (scores.losses[p] === maxLoss && maxLoss > 0) {
-            tr.classList.add("row-loss");
-        }
-
+        tr.innerHTML = `<td>${p}${cry}</td><td>${scores.losses[p]}</td><td class="actions">${actions}</td>`;
         lossBody.appendChild(tr);
     });
 }
@@ -144,26 +159,8 @@ function updateTables() {
 /* AÇÕES                     */
 /* ------------------------- */
 
-async function addWin(p) {
-    scores.wins[p]++;
-    await saveScores();
-    updateTables();
-}
+async function addWin(p) { scores.wins[p]++; updateTables(); await saveScores(); }
+async function removeWin(p) { if(scores.wins[p]>0) scores.wins[p]--; updateTables(); await saveScores(); }
 
-async function removeWin(p) {
-    if (scores.wins[p] > 0) scores.wins[p]--;
-    await saveScores();
-    updateTables();
-}
-
-async function addLoss(p) {
-    scores.losses[p]++;
-    await saveScores();
-    updateTables();
-}
-
-async function removeLoss(p) {
-    if (scores.losses[p] > 0) scores.losses[p]--;
-    await saveScores();
-    updateTables();
-}
+async function addLoss(p) { scores.losses[p]++; updateTables(); await saveScores(); }
+async function removeLoss(p) { if(scores.losses[p]>0) scores.losses[p]--; updateTables(); await saveScores(); }

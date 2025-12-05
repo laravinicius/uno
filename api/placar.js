@@ -1,24 +1,15 @@
 import { MongoClient } from "mongodb";
 
-// --- MUDANÇA CRÍTICA: FALLBACK DE EMERGÊNCIA ---
-// Se a variável do Vercel falhar, ele usa a string fixa (que sabemos que funciona).
+// --- CONEXÃO COM FALLBACK (Igual ao que funcionou) ---
 const uri = process.env.DATABASE_URL || "mongodb+srv://viniciusfelipe501_db_user:uno123456uno@unocluster.hycem7y.mongodb.net/unoDatabase?retryWrites=true&w=majority&appName=unocluster";
-// -------------------------------------------------
+// -----------------------------------------------------
 
-const options = {
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 10000,
-};
-
+const options = { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 10000 };
 let client;
 let clientPromise;
 
 function getClientPromise() {
-    // Agora isso nunca vai acontecer porque temos o fallback
-    if (!uri) {
-        throw new Error("ERRO: Nenhuma conexão disponível (Nem Variável, Nem Fallback).");
-    }
-
+    if (!uri) throw new Error("ERRO: Nenhuma conexão disponível.");
     if (process.env.NODE_ENV === "development") {
         if (!global._mongoClientPromise) {
             client = new MongoClient(uri, options);
@@ -46,17 +37,13 @@ function generateStructure() {
 }
 
 export default async function handler(req, res) {
-    // Autenticação
-    if (req.headers.authorization !== "enaex_ok") {
-        return res.status(401).json({ error: "Não autorizado" });
-    }
-
     try {
         const client = await getClientPromise();
-        const db = client.db(); // Usa o banco definido na string (/unoDatabase)
+        const db = client.db(); 
         const collection = db.collection("placar");
 
-        // --- GET ---
+        // === GET (PÚBLICO) ===
+        // Removemos a verificação de senha aqui para todos verem o placar
         if (req.method === "GET") {
             let data = await collection.findOne({ id: "uno_placar" });
 
@@ -65,22 +52,26 @@ export default async function handler(req, res) {
                 await collection.insertOne(data);
             }
 
+            // Sanitização
             let updated = false;
             PLAYERS.forEach(p => {
                 if (data.wins[p] === undefined) { data.wins[p] = 0; updated = true; }
                 if (data.losses[p] === undefined) { data.losses[p] = 0; updated = true; }
             });
 
-            if (updated) {
-                await collection.updateOne({ id: "uno_placar" }, { $set: data });
-            }
+            if (updated) await collection.updateOne({ id: "uno_placar" }, { $set: data });
 
             const { _id, ...cleanData } = data;
             return res.status(200).json(cleanData);
         }
 
-        // --- POST ---
+        // === POST (PROTEGIDO) ===
+        // A senha só é exigida se tentar alterar os dados
         if (req.method === "POST") {
+            if (req.headers.authorization !== "enaex_ok") {
+                return res.status(401).json({ error: "Acesso Negado: Faça Login" });
+            }
+
             const { _id, ...bodyData } = req.body;
             await collection.updateOne(
                 { id: "uno_placar" }, 
@@ -93,10 +84,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: "Método não permitido" });
 
     } catch (error) {
-        console.error("Erro na API:", error);
-        return res.status(500).json({ 
-            error: "Erro ao processar dados", 
-            details: error.message 
-        });
+        console.error("Erro API:", error);
+        return res.status(500).json({ error: "Erro no Servidor", details: error.message });
     }
 }
