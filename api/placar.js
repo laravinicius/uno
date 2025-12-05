@@ -1,64 +1,101 @@
 import { MongoClient } from "mongodb";
 
-// URI Hardcoded para teste (Elimina erro de variável de ambiente)
-// Adicionei 'unoDatabase' na string para forçar o banco correto
-const uri = "mongodb+srv://viniciusfelipe501_db_user:uno123456uno@unocluster.hycem7y.mongodb.net/unoDatabase?retryWrites=true&w=majority&appName=unocluster";
-
+// Pega a variável do Vercel
+const uri = process.env.MONGO_URI;
 const options = {
-    serverSelectionTimeoutMS: 5000, // Timeout de 5s para não ficar carregando infinitamente
+    serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 10000,
 };
 
 let client;
 let clientPromise;
 
-if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
+if (!uri) {
+    throw new Error("ERRO CRÍTICO: A variável MONGO_URI não está definida no Vercel.");
 }
-clientPromise = global._mongoClientPromise;
+
+// Configuração para manter a conexão ativa no Vercel (Best Practice)
+if (process.env.NODE_ENV === "development") {
+    if (!global._mongoClientPromise) {
+        client = new MongoClient(uri, options);
+        global._mongoClientPromise = client.connect();
+    }
+    clientPromise = global._mongoClientPromise;
+} else {
+    client = new MongoClient(uri, options);
+    clientPromise = client.connect();
+}
+
+const PLAYERS = [
+    "Vinicius", "Musumeci", "Fernando", "Cristyan",
+    "Jonathan", "Jose", "Willians", "Renata", "Gabi"
+];
+
+function generateStructure() {
+    const s = { id: "uno_placar", wins: {}, losses: {} };
+    PLAYERS.forEach(p => {
+        s.wins[p] = 0;
+        s.losses[p] = 0;
+    });
+    return s;
+}
 
 export default async function handler(req, res) {
-    // ---------------------------------------------------------
-    // MODO DIAGNÓSTICO (SEM AUTH)
-    // ---------------------------------------------------------
-    
+    // 1. Segurança: Verifica a senha do APP (definida no index.js)
+    if (req.headers.authorization !== "enaex_ok") {
+        return res.status(401).json({ error: "Não autorizado. Verifique o index.js" });
+    }
+
     try {
-        console.log("1. Iniciando conexão...");
         const client = await clientPromise;
-        console.log("2. Conectado ao Cluster!");
-        
-        const db = client.db("unoDatabase");
-        
-        // Teste de Ping (Verifica se o banco responde)
-        await db.command({ ping: 1 });
-        console.log("3. Ping bem sucedido!");
+        const db = client.db(); // Pega o banco definido na URI (/unoDatabase)
+        const collection = db.collection("placar");
 
-        // Teste de Leitura/Escrita
-        const collection = db.collection("placar_teste");
-        await collection.insertOne({ teste: "ok", data: new Date() });
-        console.log("4. Escrita bem sucedida!");
+        // --- MÉTODOS ---
 
-        const count = await collection.countDocuments();
+        // Ler Placar (GET)
+        if (req.method === "GET") {
+            let data = await collection.findOne({ id: "uno_placar" });
 
-        // SE CHEGAR AQUI, ESTÁ TUDO FUNCIONANDO
-        return res.status(200).json({
-            status: "SUCESSO TOTAL",
-            mensagem: "Conexão com Banco de Dados funcionando perfeitamente.",
-            documentos_teste: count,
-            database: db.databaseName
-        });
+            if (!data) {
+                data = generateStructure();
+                await collection.insertOne(data);
+            }
+
+            // Garante que novos jogadores apareçam
+            let updated = false;
+            PLAYERS.forEach(p => {
+                if (data.wins[p] === undefined) { data.wins[p] = 0; updated = true; }
+                if (data.losses[p] === undefined) { data.losses[p] = 0; updated = true; }
+            });
+
+            if (updated) {
+                await collection.updateOne({ id: "uno_placar" }, { $set: data });
+            }
+
+            const { _id, ...cleanData } = data;
+            return res.status(200).json(cleanData);
+        }
+
+        // Salvar Placar (POST)
+        if (req.method === "POST") {
+            const { _id, ...bodyData } = req.body;
+            
+            await collection.updateOne(
+                { id: "uno_placar" },
+                { $set: bodyData },
+                { upsert: true }
+            );
+            return res.status(200).json({ ok: true });
+        }
+
+        return res.status(405).json({ error: "Método não permitido" });
 
     } catch (error) {
-        console.error("ERRO GRAVE:", error);
-        
-        // RETORNA O ERRO EXATO NA TELA
-        return res.status(500).json({
-            status: "FALHA NA CONEXÃO",
-            erro_nome: error.name,
-            erro_mensagem: error.message,
-            erro_codigo: error.code,
-            dica: "Leia a mensagem acima para saber se é Senha (Auth) ou Rede (Timeout)"
+        console.error("Erro na API:", error);
+        return res.status(500).json({ 
+            error: "Erro de Conexão com o Banco", 
+            details: error.message 
         });
     }
 }
