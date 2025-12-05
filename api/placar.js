@@ -1,6 +1,7 @@
 import { MongoClient } from "mongodb";
 
-// Pega a variável do Vercel
+// --- CONFIGURAÇÃO SEGURA ---
+// Não tentamos conectar logo de cara para evitar o crash "FUNCTION_INVOCATION_FAILED"
 const uri = process.env.MONGO_URI;
 const options = {
     serverSelectionTimeoutMS: 5000,
@@ -10,20 +11,25 @@ const options = {
 let client;
 let clientPromise;
 
-if (!uri) {
-    throw new Error("ERRO CRÍTICO: A variável MONGO_URI não está definida no Vercel.");
-}
-
-// Configuração para manter a conexão ativa no Vercel (Best Practice)
-if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-        client = new MongoClient(uri, options);
-        global._mongoClientPromise = client.connect();
+// Função para iniciar a conexão apenas quando necessário
+function getClientPromise() {
+    if (!uri) {
+        throw new Error("A variável MONGO_URI não foi encontrada no Vercel.");
     }
-    clientPromise = global._mongoClientPromise;
-} else {
-    client = new MongoClient(uri, options);
-    clientPromise = client.connect();
+
+    if (process.env.NODE_ENV === "development") {
+        if (!global._mongoClientPromise) {
+            client = new MongoClient(uri, options);
+            global._mongoClientPromise = client.connect();
+        }
+        return global._mongoClientPromise;
+    } else {
+        if (!clientPromise) {
+            client = new MongoClient(uri, options);
+            clientPromise = client.connect();
+        }
+        return clientPromise;
+    }
 }
 
 const PLAYERS = [
@@ -33,27 +39,32 @@ const PLAYERS = [
 
 function generateStructure() {
     const s = { id: "uno_placar", wins: {}, losses: {} };
-    PLAYERS.forEach(p => {
-        s.wins[p] = 0;
-        s.losses[p] = 0;
-    });
+    PLAYERS.forEach(p => { s.wins[p] = 0; s.losses[p] = 0; });
     return s;
 }
 
 export default async function handler(req, res) {
-    // 1. Segurança: Verifica a senha do APP (definida no index.js)
+    // 1. Diagnóstico de Variável de Ambiente (Para debugging)
+    if (!uri) {
+        console.error("ERRO CRÍTICO: MONGO_URI está undefined.");
+        return res.status(500).json({
+            error: "Erro de Configuração no Vercel",
+            details: "A variável de ambiente MONGO_URI não foi lida. Verifique em Settings > Environment Variables se ela está marcada para 'Production'."
+        });
+    }
+
+    // 2. Autenticação
     if (req.headers.authorization !== "enaex_ok") {
-        return res.status(401).json({ error: "Não autorizado. Verifique o index.js" });
+        return res.status(401).json({ error: "Não autorizado" });
     }
 
     try {
-        const client = await clientPromise;
-        const db = client.db(); // Pega o banco definido na URI (/unoDatabase)
+        // 3. Conexão (Agora feita de forma protegida)
+        const client = await getClientPromise();
+        const db = client.db(); // Usa o banco definido na URI
         const collection = db.collection("placar");
 
-        // --- MÉTODOS ---
-
-        // Ler Placar (GET)
+        // --- GET ---
         if (req.method === "GET") {
             let data = await collection.findOne({ id: "uno_placar" });
 
@@ -62,7 +73,7 @@ export default async function handler(req, res) {
                 await collection.insertOne(data);
             }
 
-            // Garante que novos jogadores apareçam
+            // Sanitização
             let updated = false;
             PLAYERS.forEach(p => {
                 if (data.wins[p] === undefined) { data.wins[p] = 0; updated = true; }
@@ -77,10 +88,9 @@ export default async function handler(req, res) {
             return res.status(200).json(cleanData);
         }
 
-        // Salvar Placar (POST)
+        // --- POST ---
         if (req.method === "POST") {
             const { _id, ...bodyData } = req.body;
-            
             await collection.updateOne(
                 { id: "uno_placar" },
                 { $set: bodyData },
@@ -92,10 +102,11 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: "Método não permitido" });
 
     } catch (error) {
-        console.error("Erro na API:", error);
-        return res.status(500).json({ 
-            error: "Erro de Conexão com o Banco", 
-            details: error.message 
+        console.error("ERRO API:", error);
+        return res.status(500).json({
+            error: "Falha ao conectar no Banco",
+            message: error.message,
+            stack: error.stack // Ajuda a entender onde quebrou
         });
     }
 }
