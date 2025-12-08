@@ -1,13 +1,43 @@
-const players = [
-    "Vinicius", "Musumeci", "Fernando", "Cristyan",
-    "Jonathan", "Jose", "Willians", "Renata", "Gabi"
-];
-
-let scores = { wins: {}, losses: {} };
+// Variável principal de dados (Sem lista fixa)
+let gameData = {
+    players: [], 
+    wins: {},
+    losses: {}
+};
 
 // Inicialização
 loadScores();
 checkUiState();
+setupEventListeners(); // Ativa o "Enter"
+
+/* ------------------------- */
+/* EVENT LISTENERS (ENTER)   */
+/* ------------------------- */
+function setupEventListeners() {
+    // Ao apertar Enter no campo de senha, faz login
+    document.getElementById("loginPass").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            document.getElementById("btnConfirmLogin").click();
+        }
+    });
+
+    // Ao apertar Enter no campo de usuário, pula para a senha
+    document.getElementById("loginUser").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            document.getElementById("loginPass").focus();
+        }
+    });
+
+    // Ao apertar Enter no campo de Novo Jogador, adiciona
+    document.getElementById("newPlayerName").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            addNewPlayer();
+        }
+    });
+}
 
 /* ------------------------- */
 /* UI & MODAIS               */
@@ -15,9 +45,15 @@ checkUiState();
 
 function openModal(id) {
     document.getElementById(id).style.display = "flex";
-    // Limpa campos e erros ao abrir
-    document.querySelectorAll(`#${id} input`).forEach(i => i.value = "");
+    
+    // Limpa campos e foca no primeiro input
+    const inputs = document.querySelectorAll(`#${id} input`);
+    inputs.forEach(i => i.value = "");
+    if(inputs.length > 0) inputs[0].focus();
+
     document.querySelectorAll(`#${id} p`).forEach(p => p.style.display = "none");
+    
+    if(id === 'playersModal') renderPlayersList();
 }
 
 function closeModal(id) {
@@ -25,9 +61,7 @@ function closeModal(id) {
 }
 
 function checkUiState() {
-    // sessionStorage: Morre quando fecha a aba
     const token = sessionStorage.getItem("authToken");
-    
     if (token) {
         document.getElementById("btnLogin").style.display = "none";
         document.getElementById("adminControls").style.display = "inline-block";
@@ -38,13 +72,19 @@ function checkUiState() {
 }
 
 /* ------------------------- */
-/* AUTENTICAÇÃO (API)        */
+/* AUTH (LOGIN/SENHA)        */
 /* ------------------------- */
 
 async function doLogin() {
     const user = document.getElementById("loginUser").value;
     const pass = document.getElementById("loginPass").value;
     const errorMsg = document.getElementById("loginError");
+
+    // Feedback visual de carregamento
+    const btn = document.getElementById("btnConfirmLogin");
+    const originalText = btn.innerText;
+    btn.innerText = "Entrando...";
+    btn.disabled = true;
 
     try {
         const res = await fetch("/api/auth", {
@@ -56,13 +96,11 @@ async function doLogin() {
         const data = await res.json();
 
         if (res.ok) {
-            // Salva no SESSION STORAGE (Logoff automático ao fechar aba)
             sessionStorage.setItem("authUser", user);
-            sessionStorage.setItem("authToken", data.token); // Token é a senha neste caso
-            
+            sessionStorage.setItem("authToken", data.token);
             closeModal("loginModal");
             checkUiState();
-            updateTables();
+            updateTables(); 
         } else {
             errorMsg.innerText = data.error || "Erro ao entrar.";
             errorMsg.style.display = "block";
@@ -70,7 +108,17 @@ async function doLogin() {
     } catch (e) {
         errorMsg.innerText = "Erro de conexão.";
         errorMsg.style.display = "block";
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
+}
+
+function doLogout() {
+    sessionStorage.removeItem("authToken");
+    sessionStorage.removeItem("authUser");
+    checkUiState();
+    updateTables();
 }
 
 async function changePassword() {
@@ -89,11 +137,11 @@ async function changePassword() {
         const data = await res.json();
 
         if (res.ok) {
-            alert("Senha alterada com sucesso! Faça login novamente.");
+            alert("Senha alterada! Faça login novamente.");
             doLogout();
             closeModal("passModal");
         } else {
-            errorMsg.innerText = data.error || "Erro ao alterar.";
+            errorMsg.innerText = data.error || "Erro.";
             errorMsg.style.display = "block";
         }
     } catch (e) {
@@ -102,82 +150,142 @@ async function changePassword() {
     }
 }
 
-function doLogout() {
-    sessionStorage.removeItem("authToken");
-    sessionStorage.removeItem("authUser");
-    checkUiState();
+/* ------------------------- */
+/* GERENCIAR JOGADORES (CRUD)*/
+/* ------------------------- */
+
+function renderPlayersList() {
+    const list = document.getElementById("playersList");
+    list.innerHTML = "";
+
+    if (!gameData.players || gameData.players.length === 0) {
+        list.innerHTML = "<p style='color:#777; text-align:center;'>Nenhum jogador.</p>";
+        return;
+    }
+
+    // Ordena alfabeticamente no modal para facilitar
+    const sortedPlayers = [...gameData.players].sort();
+
+    sortedPlayers.forEach(p => {
+        const div = document.createElement("div");
+        div.style.cssText = "display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center;";
+        
+        div.innerHTML = `
+            <span style="color: white; font-weight: bold;">${p}</span>
+            <button onclick="deletePlayer('${p}')" style="background: #c20000; border:none; color:white; cursor:pointer; padding: 5px 10px; border-radius: 4px;">🗑️</button>
+        `;
+        list.appendChild(div);
+    });
+}
+
+async function addNewPlayer() {
+    const input = document.getElementById("newPlayerName");
+    const name = input.value.trim();
+
+    if (!name) return alert("Digite um nome!");
+    if (gameData.players.includes(name)) return alert("Já existe!");
+
+    gameData.players.push(name);
+    // Zera placar se for novo
+    if (gameData.wins[name] === undefined) gameData.wins[name] = 0;
+    if (gameData.losses[name] === undefined) gameData.losses[name] = 0;
+
+    input.value = "";
+    input.focus(); // Mantém o foco para adicionar outro rapidamente
+    
+    renderPlayersList();
     updateTables();
+    await saveScores();
+}
+
+async function deletePlayer(name) {
+    if (!confirm(`Remover ${name}? O histórico será apagado.`)) return;
+
+    gameData.players = gameData.players.filter(p => p !== name);
+    delete gameData.wins[name];
+    delete gameData.losses[name];
+
+    renderPlayersList();
+    updateTables();
+    await saveScores();
 }
 
 /* ------------------------- */
-/* PLACAR (API)              */
+/* API & DADOS               */
 /* ------------------------- */
 
 async function loadScores() {
     try {
         const res = await fetch("/api/placar");
-        if (!res.ok) throw new Error("Erro API GET");
+        if (!res.ok) throw new Error("Erro GET");
         
         const data = await res.json();
-        scores.wins = data.wins || {};
-        scores.losses = data.losses || {};
-
-        // Garante integridade
-        players.forEach(p => {
-            if (scores.wins[p] === undefined) scores.wins[p] = 0;
-            if (scores.losses[p] === undefined) scores.losses[p] = 0;
-        });
+        
+        gameData.wins = data.wins || {};
+        gameData.losses = data.losses || {};
+        
+        // Lógica de Migração: Se não tem lista 'players', cria baseada nas chaves
+        gameData.players = data.players || [];
+        if (gameData.players.length === 0) {
+            const allNames = new Set([...Object.keys(gameData.wins), ...Object.keys(gameData.losses)]);
+            gameData.players = Array.from(allNames);
+        }
 
         updateTables();
     } catch (error) {
-        console.error("Erro ao carregar:", error);
+        console.error("Erro load:", error);
     }
 }
 
 async function saveScores() {
     const token = sessionStorage.getItem("authToken");
-    if (!token) return; // Não tenta salvar se não tiver logado
+    if (!token) return; 
 
     try {
         const res = await fetch("/api/placar", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": token // Envia a senha/token para validar no banco
+                "Authorization": token
             },
-            body: JSON.stringify(scores)
+            body: JSON.stringify(gameData)
         });
 
         if (!res.ok) {
             if (res.status === 401) {
-                alert("Sessão inválida ou senha alterada. Logue novamente.");
+                alert("Sessão expirada. Logue novamente.");
                 doLogout();
             } else {
-                console.error("Erro ao salvar dados.");
+                console.error("Erro ao salvar.");
             }
         }
     } catch (e) {
-        console.error("Erro rede save:", e);
+        console.error("Erro rede:", e);
     }
 }
 
 /* ------------------------- */
-/* RENDERIZAÇÃO              */
+/* RENDERIZAÇÃO TABELAS      */
 /* ------------------------- */
 
 function updateTables() {
     const isLogged = !!sessionStorage.getItem("authToken");
 
-    // Esconde/Mostra cabeçalhos da coluna Ações
     document.querySelectorAll(".col-actions").forEach(th => {
         th.style.display = isLogged ? "" : "none";
     });
 
-    const winRank = [...players].sort((a, b) => scores.wins[b] - scores.wins[a]);
-    const lossRank = [...players].sort((a, b) => scores.losses[b] - scores.losses[a]);
+    if (gameData.players.length === 0) {
+        document.querySelector("#winTable tbody").innerHTML = "<tr><td colspan='3' style='text-align:center; padding:20px;'>Sem jogadores cadastrados.<br>Faça login para adicionar.</td></tr>";
+        document.querySelector("#lossTable tbody").innerHTML = "<tr><td colspan='3' style='text-align:center; padding:20px;'>Sem jogadores cadastrados.</td></tr>";
+        return;
+    }
 
-    const maxWins = scores.wins[winRank[0]];
-    const maxLoss = scores.losses[lossRank[0]];
+    const winRank = [...gameData.players].sort((a, b) => (gameData.wins[b]||0) - (gameData.wins[a]||0));
+    const lossRank = [...gameData.players].sort((a, b) => (gameData.losses[b]||0) - (gameData.losses[a]||0));
+
+    const maxWins = gameData.wins[winRank[0]] || 0;
+    const maxLoss = gameData.losses[lossRank[0]] || 0;
 
     const renderRows = (rankList, type) => {
         const tbody = document.querySelector(`#${type}Table tbody`);
@@ -185,7 +293,7 @@ function updateTables() {
         const maxVal = type === "win" ? maxWins : maxLoss;
 
         rankList.forEach(p => {
-            const val = type === "win" ? scores.wins[p] : scores.losses[p];
+            const val = type === "win" ? (gameData.wins[p]||0) : (gameData.losses[p]||0);
             const icon = (val === maxVal && maxVal > 0) 
                 ? (type === "win" ? " 👑" : " 😭") 
                 : "";
@@ -213,8 +321,8 @@ function updateTables() {
 /* AÇÕES DE JOGO             */
 /* ------------------------- */
 
-async function addWin(p) { scores.wins[p]++; updateTables(); await saveScores(); }
-async function removeWin(p) { if(scores.wins[p]>0) scores.wins[p]--; updateTables(); await saveScores(); }
+async function addWin(p) { gameData.wins[p]++; updateTables(); await saveScores(); }
+async function removeWin(p) { if(gameData.wins[p]>0) gameData.wins[p]--; updateTables(); await saveScores(); }
 
-async function addLoss(p) { scores.losses[p]++; updateTables(); await saveScores(); }
-async function removeLoss(p) { if(scores.losses[p]>0) scores.losses[p]--; updateTables(); await saveScores(); }
+async function addLoss(p) { gameData.losses[p]++; updateTables(); await saveScores(); }
+async function removeLoss(p) { if(gameData.losses[p]>0) gameData.losses[p]--; updateTables(); await saveScores(); }

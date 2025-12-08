@@ -1,89 +1,76 @@
 import { MongoClient } from "mongodb";
 
 const uri = process.env.DATABASE_URL || "mongodb+srv://viniciusfelipe501_db_user:uno123456uno@unocluster.hycem7y.mongodb.net/unoDatabase?retryWrites=true&w=majority&appName=unocluster";
-const options = { serverSelectionTimeoutMS: 5000 };
+const options = { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 10000 };
 
 let client;
 let clientPromise;
 
-if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-        client = new MongoClient(uri, options);
-        global._mongoClientPromise = client.connect();
+function getClientPromise() {
+    if (!uri) throw new Error("ERRO: Nenhuma conexão disponível.");
+    if (process.env.NODE_ENV === "development") {
+        if (!global._mongoClientPromise) {
+            client = new MongoClient(uri, options);
+            global._mongoClientPromise = client.connect();
+        }
+        return global._mongoClientPromise;
+    } else {
+        if (!clientPromise) {
+            client = new MongoClient(uri, options);
+            clientPromise = client.connect();
+        }
+        return clientPromise;
     }
-    clientPromise = global._mongoClientPromise;
-} else {
-    if (!clientPromise) {
-        client = new MongoClient(uri, options);
-        clientPromise = client.connect();
-    }
-}
-
-const PLAYERS = [
-    "Vinicius", "Musumeci", "Fernando", "Cristyan",
-    "Jonathan", "Jose", "Willians", "Renata", "Gabi"
-];
-
-function generateStructure() {
-    const s = { id: "uno_placar", wins: {}, losses: {} };
-    PLAYERS.forEach(p => { s.wins[p] = 0; s.losses[p] = 0; });
-    return s;
 }
 
 export default async function handler(req, res) {
     try {
-        const client = await clientPromise;
+        const client = await getClientPromise();
         const db = client.db();
         const collection = db.collection("placar");
         const configColl = db.collection("config");
 
-        // === GET (Público) ===
+        // --- GET (PÚBLICO) ---
         if (req.method === "GET") {
             let data = await collection.findOne({ id: "uno_placar" });
+            
+            // Se não existir, cria estrutura inicial vazia
             if (!data) {
-                data = generateStructure();
+                data = { id: "uno_placar", players: [], wins: {}, losses: {} };
                 await collection.insertOne(data);
             }
-            
-            // Sanitização
-            let updated = false;
-            PLAYERS.forEach(p => {
-                if (data.wins[p] === undefined) { data.wins[p] = 0; updated = true; }
-                if (data.losses[p] === undefined) { data.losses[p] = 0; updated = true; }
-            });
-            if (updated) await collection.updateOne({ id: "uno_placar" }, { $set: data });
 
             const { _id, ...cleanData } = data;
             return res.status(200).json(cleanData);
         }
 
-        // === POST (Protegido via Banco) ===
+        // --- POST (PROTEGIDO) ---
         if (req.method === "POST") {
-            // 1. Pega a senha enviada no header
             const sentToken = req.headers.authorization;
             
-            // 2. Busca a senha real no banco
+            // Busca a senha real no banco para validar
             const admin = await configColl.findOne({ id: "admin_user" });
-            const realPass = admin ? admin.pass : "enaex@ti2025"; // Fallback seguro
+            const realPass = admin ? admin.pass : "enaex@ti2025";
 
-            // 3. Compara
             if (sentToken !== realPass) {
-                return res.status(401).json({ error: "Senha alterada ou incorreta. Faça login novamente." });
+                return res.status(401).json({ error: "Não autorizado" });
             }
 
             const { _id, ...bodyData } = req.body;
+            
+            // Salva tudo (incluindo adição/remoção de jogadores)
             await collection.updateOne(
-                { id: "uno_placar" }, 
-                { $set: bodyData }, 
+                { id: "uno_placar" },
+                { $set: bodyData },
                 { upsert: true }
             );
             return res.status(200).json({ ok: true });
         }
 
-        return res.status(405).json({ error: "Método não permitido" });
+        return res.status(405).json({ error: "Método inválido" });
 
     } catch (error) {
-        console.error("Erro API:", error);
-        return res.status(500).json({ error: "Erro no Servidor", details: error.message });
+        console.error("Erro API Placar:", error);
+        return res.status(500).json({ error: "Erro no servidor" });
     }
 }

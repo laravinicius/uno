@@ -25,51 +25,41 @@ export default async function handler(req, res) {
         const db = client.db();
         const configColl = db.collection("config");
 
-        // 1. Busca ou Cria o Usuário Admin Padrão
+        // Garante que o usuário admin existe
         let admin = await configColl.findOne({ id: "admin_user" });
         if (!admin) {
             admin = { id: "admin_user", user: "enaex", pass: "enaex@ti2025" };
             await configColl.insertOne(admin);
         }
 
-        // === ROTA DE LOGIN (POST) ===
+        // --- LOGIN (POST) ---
         if (req.method === "POST" && !req.body.newPass) {
             const { user, pass } = req.body;
-
             if (user === admin.user && pass === admin.pass) {
-                // Retorna sucesso e o token (neste caso simples, a própria senha serve como token)
                 return res.status(200).json({ ok: true, token: admin.pass });
             } else {
-                return res.status(401).json({ error: "Usuário ou senha incorretos." });
+                return res.status(401).json({ error: "Credenciais inválidas." });
             }
         }
 
-        // === ROTA DE TROCAR SENHA (PUT) ===
+        // --- TROCAR SENHA (PUT) ---
         if (req.method === "PUT") {
             const { user, currentPass, newPass } = req.body;
-
-            // Verifica credenciais atuais antes de trocar
+            
             if (user !== admin.user || currentPass !== admin.pass) {
                 return res.status(401).json({ error: "Senha atual incorreta." });
             }
-
             if (!newPass || newPass.length < 4) {
-                return res.status(400).json({ error: "A nova senha deve ter pelo menos 4 caracteres." });
+                return res.status(400).json({ error: "A senha deve ter pelo menos 4 dígitos." });
             }
 
-            // Atualiza no banco
-            await configColl.updateOne(
-                { id: "admin_user" },
-                { $set: { pass: newPass } }
-            );
-
+            await configColl.updateOne({ id: "admin_user" }, { $set: { pass: newPass } });
             return res.status(200).json({ ok: true });
         }
 
         return res.status(405).json({ error: "Método não permitido" });
 
     } catch (error) {
-        console.error("Auth Error:", error);
         return res.status(500).json({ error: "Erro interno" });
     }
 }

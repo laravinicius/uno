@@ -18,11 +18,14 @@
         }
         .modal-box {
             background: #1e1e1e; padding: 25px; border-radius: 8px; border: 2px solid #ff0000;
-            text-align: center; width: 300px; max-width: 90%;
+            text-align: center; width: 300px; max-width: 90%; color: white;
         }
         .modal-box input { display: block; width: 90%; margin: 12px auto; padding: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; }
         .modal-box button.action-btn { width: 95%; padding: 10px; margin-top: 15px; background: #c20000; color: white; border: none; cursor: pointer; font-weight: bold; }
         .close-btn { background: transparent; border: none; color: #aaa; float: right; cursor: pointer; font-size: 24px; line-height: 20px; }
+        
+        /* Lista de Jogadores no Modal */
+        #playersList div:hover { background-color: #333; }
     </style>
 </head>
 <body>
@@ -30,6 +33,7 @@
 <div class="auth-bar">
     <button id="btnLogin" class="btn-login" onclick="openModal('loginModal')">🔐 Login Admin</button>
     <span id="adminControls" style="display:none;">
+        <button class="btn-login" onclick="openModal('playersModal')">👥 Jogadores</button>
         <button class="btn-login" onclick="openModal('passModal')">🔑 Mudar Senha</button>
         <button id="btnLogout" class="btn-login" onclick="doLogout()">🚪 Sair</button>
     </span>
@@ -41,7 +45,7 @@
         <h2>Acesso Admin</h2>
         <input id="loginUser" type="text" placeholder="Usuário">
         <input id="loginPass" type="password" placeholder="Senha">
-        <button class="action-btn" onclick="doLogin()">Entrar</button>
+        <button id="btnConfirmLogin" class="action-btn" onclick="doLogin()">Entrar</button>
         <p id="loginError" style="color: red; display:none; margin-top:10px;"></p>
     </div>
 </div>
@@ -57,9 +61,24 @@
     </div>
 </div>
 
+<div id="playersModal" class="modal-overlay">
+    <div class="modal-box" style="width: 400px;">
+        <button class="close-btn" onclick="closeModal('playersModal')">×</button>
+        <h2>Gerenciar Jogadores</h2>
+        
+        <div style="display: flex; gap: 5px; margin-bottom: 20px; align-items: center;">
+            <input id="newPlayerName" type="text" placeholder="Nome do Jogador" style="margin: 0; flex: 1;">
+            <button onclick="addNewPlayer()" style="width: auto; margin: 0; background: #28a745; padding: 10px 15px; border:none; color:white; border-radius:4px; cursor:pointer;">+</button>
+        </div>
+
+        <div id="playersList" style="max-height: 300px; overflow-y: auto; text-align: left; border-top: 1px solid #444; padding-top:10px;">
+            </div>
+    </div>
+</div>
+
 <div id="appContent">
     <div class="logo-container">
-        <img src="./imgs/uno.jpg" alt="UNO Logo" class="uno-logo">
+        <img src="./imgs/uno.jpg" alt="UNO No Mercy Logo" class="uno-logo">
     </div>
     <h1>PLACAR — UNO NO MERCY</h1>
 
