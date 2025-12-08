@@ -163,16 +163,20 @@ function renderPlayersList() {
         return;
     }
 
-    // Ordena alfabeticamente no modal para facilitar
+    // Ordena alfabeticamente
     const sortedPlayers = [...gameData.players].sort();
 
     sortedPlayers.forEach(p => {
         const div = document.createElement("div");
         div.style.cssText = "display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center;";
         
+        // Adicionamos o botão de Editar ao lado do Excluir
         div.innerHTML = `
-            <span style="color: white; font-weight: bold;">${p}</span>
-            <button onclick="deletePlayer('${p}')" style="background: #c20000; border:none; color:white; cursor:pointer; padding: 5px 10px; border-radius: 4px;">🗑️</button>
+            <span style="color: white; font-weight: bold; flex-grow: 1;">${p}</span>
+            <div>
+                <button onclick="editPlayer('${p}')" style="background: #0070f3; border:none; color:white; cursor:pointer; padding: 5px 10px; border-radius: 4px; margin-right: 5px;" title="Editar Nome">✏️</button>
+                <button onclick="deletePlayer('${p}')" style="background: #c20000; border:none; color:white; cursor:pointer; padding: 5px 10px; border-radius: 4px;" title="Excluir Jogador">🗑️</button>
+            </div>
         `;
         list.appendChild(div);
     });
@@ -186,13 +190,45 @@ async function addNewPlayer() {
     if (gameData.players.includes(name)) return alert("Já existe!");
 
     gameData.players.push(name);
+    
     // Zera placar se for novo
     if (gameData.wins[name] === undefined) gameData.wins[name] = 0;
     if (gameData.losses[name] === undefined) gameData.losses[name] = 0;
 
     input.value = "";
-    input.focus(); // Mantém o foco para adicionar outro rapidamente
+    input.focus();
     
+    renderPlayersList();
+    updateTables();
+    await saveScores();
+}
+
+// --- NOVA FUNÇÃO DE EDIÇÃO ---
+async function editPlayer(oldName) {
+    const newName = prompt(`Novo nome para ${oldName}:`, oldName);
+
+    // Validações básicas
+    if (!newName || newName.trim() === "") return; // Cancelou ou vazio
+    if (newName === oldName) return; // Nome igual, não faz nada
+    if (gameData.players.includes(newName)) {
+        alert("Já existe um jogador com este nome!");
+        return;
+    }
+
+    // 1. Atualiza a lista de nomes
+    // Troca o nome antigo pelo novo na posição exata (ou map)
+    gameData.players = gameData.players.map(p => p === oldName ? newName : p);
+
+    // 2. Migra os pontos (Vitórias e Derrotas)
+    // Copia os dados do antigo para a nova chave
+    gameData.wins[newName] = gameData.wins[oldName];
+    gameData.losses[newName] = gameData.losses[oldName];
+
+    // 3. Apaga os dados do nome antigo para não deixar lixo no banco
+    delete gameData.wins[oldName];
+    delete gameData.losses[oldName];
+
+    // 4. Salva e Atualiza Tela
     renderPlayersList();
     updateTables();
     await saveScores();
