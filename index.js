@@ -5,59 +5,116 @@ const players = [
 
 let scores = { wins: {}, losses: {} };
 
-// Carrega o placar assim que abre a página
+// Inicialização
 loadScores();
-checkUiState(); // Verifica se mostra botão Login ou Sair
+checkUiState();
 
 /* ------------------------- */
-/* SISTEMA DE LOGIN        */
+/* UI & MODAIS               */
 /* ------------------------- */
 
-function openLogin() {
-    document.getElementById("loginModal").style.display = "flex";
-    document.getElementById("loginUser").focus();
+function openModal(id) {
+    document.getElementById(id).style.display = "flex";
+    // Limpa campos e erros ao abrir
+    document.querySelectorAll(`#${id} input`).forEach(i => i.value = "");
+    document.querySelectorAll(`#${id} p`).forEach(p => p.style.display = "none");
 }
 
-function closeLogin() {
-    document.getElementById("loginModal").style.display = "none";
-    document.getElementById("loginError").style.display = "none";
+function closeModal(id) {
+    document.getElementById(id).style.display = "none";
 }
 
-function doLogin() {
+function checkUiState() {
+    // sessionStorage: Morre quando fecha a aba
+    const token = sessionStorage.getItem("authToken");
+    
+    if (token) {
+        document.getElementById("btnLogin").style.display = "none";
+        document.getElementById("adminControls").style.display = "inline-block";
+    } else {
+        document.getElementById("btnLogin").style.display = "inline-block";
+        document.getElementById("adminControls").style.display = "none";
+    }
+}
+
+/* ------------------------- */
+/* AUTENTICAÇÃO (API)        */
+/* ------------------------- */
+
+async function doLogin() {
     const user = document.getElementById("loginUser").value;
     const pass = document.getElementById("loginPass").value;
+    const errorMsg = document.getElementById("loginError");
 
-    if (user === "enaex" && pass === "enaex@ti2025") {
-        localStorage.setItem("auth", "enaex_ok");
-        closeLogin();
-        checkUiState();
-        updateTables(); // Redesenha a tabela para aparecer os botões
-    } else {
-        document.getElementById("loginError").style.display = "block";
+    try {
+        const res = await fetch("/api/auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user, pass })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            // Salva no SESSION STORAGE (Logoff automático ao fechar aba)
+            sessionStorage.setItem("authUser", user);
+            sessionStorage.setItem("authToken", data.token); // Token é a senha neste caso
+            
+            closeModal("loginModal");
+            checkUiState();
+            updateTables();
+        } else {
+            errorMsg.innerText = data.error || "Erro ao entrar.";
+            errorMsg.style.display = "block";
+        }
+    } catch (e) {
+        errorMsg.innerText = "Erro de conexão.";
+        errorMsg.style.display = "block";
+    }
+}
+
+async function changePassword() {
+    const currentPass = document.getElementById("currentPass").value;
+    const newPass = document.getElementById("newPass").value;
+    const errorMsg = document.getElementById("passError");
+    const user = sessionStorage.getItem("authUser") || "enaex";
+
+    try {
+        const res = await fetch("/api/auth", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user, currentPass, newPass })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            alert("Senha alterada com sucesso! Faça login novamente.");
+            doLogout();
+            closeModal("passModal");
+        } else {
+            errorMsg.innerText = data.error || "Erro ao alterar.";
+            errorMsg.style.display = "block";
+        }
+    } catch (e) {
+        errorMsg.innerText = "Erro de conexão.";
+        errorMsg.style.display = "block";
     }
 }
 
 function doLogout() {
-    if(confirm("Deseja sair do modo admin?")) {
-        localStorage.removeItem("auth");
-        checkUiState();
-        updateTables(); // Redesenha a tabela para sumir os botões
-    }
-}
-
-function checkUiState() {
-    const isLogged = localStorage.getItem("auth") === "enaex_ok";
-    document.getElementById("btnLogin").style.display = isLogged ? "none" : "inline-block";
-    document.getElementById("btnLogout").style.display = isLogged ? "inline-block" : "none";
+    sessionStorage.removeItem("authToken");
+    sessionStorage.removeItem("authUser");
+    checkUiState();
+    updateTables();
 }
 
 /* ------------------------- */
-/* API & DADOS             */
+/* PLACAR (API)              */
 /* ------------------------- */
 
 async function loadScores() {
     try {
-        // GET agora é público, não enviamos header
         const res = await fetch("/api/placar");
         if (!res.ok) throw new Error("Erro API GET");
         
@@ -65,54 +122,55 @@ async function loadScores() {
         scores.wins = data.wins || {};
         scores.losses = data.losses || {};
 
+        // Garante integridade
         players.forEach(p => {
             if (scores.wins[p] === undefined) scores.wins[p] = 0;
             if (scores.losses[p] === undefined) scores.losses[p] = 0;
         });
 
         updateTables();
-
     } catch (error) {
         console.error("Erro ao carregar:", error);
     }
 }
 
 async function saveScores() {
+    const token = sessionStorage.getItem("authToken");
+    if (!token) return; // Não tenta salvar se não tiver logado
+
     try {
         const res = await fetch("/api/placar", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                // Enviamos a senha para poder salvar
-                "Authorization": "enaex_ok" 
+                "Authorization": token // Envia a senha/token para validar no banco
             },
             body: JSON.stringify(scores)
         });
 
         if (!res.ok) {
             if (res.status === 401) {
-                alert("Sessão expirada ou sem permissão. Faça login novamente.");
+                alert("Sessão inválida ou senha alterada. Logue novamente.");
                 doLogout();
             } else {
-                alert("Erro ao salvar!");
+                console.error("Erro ao salvar dados.");
             }
         }
     } catch (e) {
-        console.error("Erro save:", e);
+        console.error("Erro rede save:", e);
     }
 }
 
 /* ------------------------- */
-/* TABELAS (RENDERIZAÇÃO)    */
+/* RENDERIZAÇÃO              */
 /* ------------------------- */
 
 function updateTables() {
-    const isAdmin = localStorage.getItem("auth") === "enaex_ok";
+    const isLogged = !!sessionStorage.getItem("authToken");
 
-    // 1. Controla a visibilidade dos Cabeçalhos (Ações)
-    const headers = document.querySelectorAll(".col-actions");
-    headers.forEach(th => {
-        th.style.display = isAdmin ? "" : "none";
+    // Esconde/Mostra cabeçalhos da coluna Ações
+    document.querySelectorAll(".col-actions").forEach(th => {
+        th.style.display = isLogged ? "" : "none";
     });
 
     const winRank = [...players].sort((a, b) => scores.wins[b] - scores.wins[a]);
@@ -121,53 +179,38 @@ function updateTables() {
     const maxWins = scores.wins[winRank[0]];
     const maxLoss = scores.losses[lossRank[0]];
 
-    const winBody = document.querySelector("#winTable tbody");
-    const lossBody = document.querySelector("#lossTable tbody");
+    const renderRows = (rankList, type) => {
+        const tbody = document.querySelector(`#${type}Table tbody`);
+        tbody.innerHTML = "";
+        const maxVal = type === "win" ? maxWins : maxLoss;
 
-    winBody.innerHTML = "";
-    lossBody.innerHTML = "";
+        rankList.forEach(p => {
+            const val = type === "win" ? scores.wins[p] : scores.losses[p];
+            const icon = (val === maxVal && maxVal > 0) 
+                ? (type === "win" ? " 👑" : " 😭") 
+                : "";
 
-    // --- Renderiza Vitórias ---
-    winRank.forEach(p => {
-        const crown = scores.wins[p] === maxWins && maxWins > 0 ? " 👑" : "";
-        
-        // Se for admin, cria a célula com botões. Se não, string vazia.
-        const actionCell = isAdmin 
-            ? `<td class="actions">
-                   <button class="add" onclick="addWin('${p}')">+</button>
-                   <button class="remove" onclick="removeWin('${p}')">-</button>
-               </td>` 
-            : "";
+            const actionCell = isLogged 
+                ? `<td class="actions">
+                     <button class="add" onclick="${type === 'win' ? 'addWin' : 'addLoss'}('${p}')">+</button>
+                     <button class="remove" onclick="${type === 'win' ? 'removeWin' : 'removeLoss'}('${p}')">-</button>
+                   </td>` 
+                : "";
 
-        const tr = document.createElement("tr");
-        if (scores.wins[p] === maxWins && maxWins > 0) tr.classList.add("row-win");
-        
-        // Note que actionCell só entra no HTML se for admin
-        tr.innerHTML = `<td>${p}${crown}</td><td>${scores.wins[p]}</td>${actionCell}`;
-        winBody.appendChild(tr);
-    });
+            const tr = document.createElement("tr");
+            if (val === maxVal && maxVal > 0) tr.classList.add(type === "win" ? "row-win" : "row-loss");
 
-    // --- Renderiza Derrotas ---
-    lossRank.forEach(p => {
-        const cry = scores.losses[p] === maxLoss && maxLoss > 0 ? " 😭" : "";
+            tr.innerHTML = `<td>${p}${icon}</td><td>${val}</td>${actionCell}`;
+            tbody.appendChild(tr);
+        });
+    };
 
-        const actionCell = isAdmin 
-            ? `<td class="actions">
-                   <button class="add" onclick="addLoss('${p}')">+</button>
-                   <button class="remove" onclick="removeLoss('${p}')">-</button>
-               </td>` 
-            : "";
-
-        const tr = document.createElement("tr");
-        if (scores.losses[p] === maxLoss && maxLoss > 0) tr.classList.add("row-loss");
-
-        tr.innerHTML = `<td>${p}${cry}</td><td>${scores.losses[p]}</td>${actionCell}`;
-        lossBody.appendChild(tr);
-    });
+    renderRows(winRank, "win");
+    renderRows(lossRank, "loss");
 }
 
 /* ------------------------- */
-/* AÇÕES                     */
+/* AÇÕES DE JOGO             */
 /* ------------------------- */
 
 async function addWin(p) { scores.wins[p]++; updateTables(); await saveScores(); }

@@ -8,91 +8,73 @@
     <link rel="stylesheet" href="index.css">
     
     <style>
-        .auth-bar {
-            text-align: right;
-            padding: 10px;
+        .auth-bar { text-align: right; padding: 10px; }
+        .btn-login { background: #333; color: #fff; border: 1px solid #555; padding: 5px 15px; cursor: pointer; border-radius: 4px; margin-left: 5px; }
+        
+        /* Modais */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 999;
         }
-        .btn-login {
-            background: #333; color: #fff; border: 1px solid #555;
-            padding: 5px 15px; cursor: pointer; border-radius: 4px;
+        .modal-box {
+            background: #1e1e1e; padding: 25px; border-radius: 8px; border: 2px solid #ff0000;
+            text-align: center; width: 300px; max-width: 90%;
         }
-        /* Modal de Login (Fundo Escuro) */
-        #loginModal {
-            display: none; /* Escondido por padrão */
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
-            justify-content: center; align-items: center;
-            z-index: 999;
-        }
-        /* Caixa de Login */
-        .login-box {
-            background: #1e1e1e; padding: 20px; border-radius: 8px;
-            border: 2px solid #ff0000; text-align: center;
-            width: 300px;
-        }
-        .login-box input {
-            display: block; width: 90%; margin: 10px auto; padding: 8px;
-        }
-        .login-box button {
-            width: 95%; padding: 10px; margin-top: 10px;
-            background: #c20000; color: white; border: none; cursor: pointer;
-        }
-        .close-btn {
-            background: transparent; border: none; color: #aaa; float: right; cursor: pointer; font-size: 20px;
-        }
+        .modal-box input { display: block; width: 90%; margin: 12px auto; padding: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; }
+        .modal-box button.action-btn { width: 95%; padding: 10px; margin-top: 15px; background: #c20000; color: white; border: none; cursor: pointer; font-weight: bold; }
+        .close-btn { background: transparent; border: none; color: #aaa; float: right; cursor: pointer; font-size: 24px; line-height: 20px; }
     </style>
 </head>
 <body>
 
 <div class="auth-bar">
-    <button id="btnLogin" class="btn-login" onclick="openLogin()">🔐 Login Admin</button>
-    <button id="btnLogout" class="btn-login" onclick="doLogout()" style="display:none;">🚪 Sair</button>
+    <button id="btnLogin" class="btn-login" onclick="openModal('loginModal')">🔐 Login Admin</button>
+    <span id="adminControls" style="display:none;">
+        <button class="btn-login" onclick="openModal('passModal')">🔑 Mudar Senha</button>
+        <button id="btnLogout" class="btn-login" onclick="doLogout()">🚪 Sair</button>
+    </span>
 </div>
 
-<div id="loginModal">
-    <div class="login-box">
-        <button class="close-btn" onclick="closeLogin()">×</button>
-        <h2>Acesso Restrito</h2>
+<div id="loginModal" class="modal-overlay">
+    <div class="modal-box">
+        <button class="close-btn" onclick="closeModal('loginModal')">×</button>
+        <h2>Acesso Admin</h2>
         <input id="loginUser" type="text" placeholder="Usuário">
         <input id="loginPass" type="password" placeholder="Senha">
-        <button onclick="doLogin()">Entrar</button>
-        <p id="loginError" style="color: red; display:none; margin-top:10px;">Credenciais inválidas.</p>
+        <button class="action-btn" onclick="doLogin()">Entrar</button>
+        <p id="loginError" style="color: red; display:none; margin-top:10px;"></p>
+    </div>
+</div>
+
+<div id="passModal" class="modal-overlay">
+    <div class="modal-box">
+        <button class="close-btn" onclick="closeModal('passModal')">×</button>
+        <h2>Alterar Senha</h2>
+        <input id="currentPass" type="password" placeholder="Senha Atual">
+        <input id="newPass" type="password" placeholder="Nova Senha">
+        <button class="action-btn" onclick="changePassword()">Salvar Nova Senha</button>
+        <p id="passError" style="color: red; display:none; margin-top:10px;"></p>
     </div>
 </div>
 
 <div id="appContent">
-
     <div class="logo-container">
-        <img src="./imgs/uno.jpg" alt="UNO No Mercy Logo" class="uno-logo">
+        <img src="./imgs/uno.jpg" alt="UNO Logo" class="uno-logo">
     </div>
-
     <h1>PLACAR — UNO NO MERCY</h1>
 
     <div class="tables-container">
         <div class="table-box">
             <h2>Ranking de Vitórias</h2>
             <table id="winTable">
-                <thead>
-                    <tr>
-                        <th>Jogador</th>
-                        <th>Vitórias</th>
-                        <th class="col-actions">Ações</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>Jogador</th><th>Vitórias</th><th class="col-actions">Ações</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
-
         <div class="table-box">
             <h2>Ranking de Derrotas</h2>
             <table id="lossTable">
-                <thead>
-                    <tr>
-                        <th>Jogador</th>
-                        <th>Derrotas</th>
-                        <th class="col-actions">Ações</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>Jogador</th><th>Derrotas</th><th class="col-actions">Ações</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
